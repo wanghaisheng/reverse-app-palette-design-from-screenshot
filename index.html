@@ -32,7 +32,7 @@
             return { ratio, isAccessible };
         }
 
-        // Analyze color accessibility for different types of color blindness
+        // Analyze color blindness accessibility for a given color
         function analyzeColorBlindnessAccessibility(hex) {
             const rgb = hexToRgb(hex);
             const accessible = {
@@ -121,11 +121,13 @@
 
             // Generate report for each image
             function generateReport(file, colors) {
-                const colorInsights = colors.map(color => {
+                let reportRows = '';
+
+                colors.forEach(color => {
                     const accessibility = analyzeColorBlindnessAccessibility(color);
                     const contrastText = checkContrastAccessibility(hexToRgb(color), [255, 255, 255]);
 
-                    return `
+                    reportRows += `
                         <tr>
                             <td><img src="${URL.createObjectURL(file)}" style="width: 50px;"></td>
                             <td style="display: flex;">
@@ -138,9 +140,9 @@
                             </td>
                         </tr>
                     `;
-                }).join('');
-                
-                return colorInsights;
+                });
+
+                return reportRows;
             }
 
             // Function to apply styles based on extracted colors
@@ -212,7 +214,7 @@
             <head>
                 <style>
                     body { font-family: Arial, sans-serif; padding: 20px; }
-                    section { padding: 20px; margin-bottom: 10px; }
+                    section { padding: 20px; border: 1px solid #ddd; margin-bottom: 10px; }
                 </style>
             </head>
             <body>
