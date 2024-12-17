@@ -83,35 +83,11 @@
             const reportTable = document.getElementById("reportTable");
             const iframe = document.getElementById("testIframe");
             const applyButton = document.getElementById("applyStylesButton");
+            const analyzeButton = document.getElementById("analyzeButton");
 
             let extractedColors = [];
 
-            fileInput.addEventListener("change", async (event) => {
-                output.innerHTML = ""; // Clear previous output
-                reportTable.innerHTML = ""; // Clear previous report table
-
-                const files = Array.from(event.target.files).slice(0, 10); // Allow max 10 files
-
-                // Create table header
-                const tableHeader = `
-                    <tr>
-                        <th>Image Preview</th>
-                        <th>Extracted Colors</th>
-                        <th>Accessibility Insights</th>
-                    </tr>
-                `;
-                reportTable.innerHTML = tableHeader;
-
-                for (const file of files) {
-                    const palette = await extractColors(file, 5);
-                    extractedColors.push(palette);
-                    displayResult(file, palette);
-                    const report = generateReport(file, palette);
-                    reportTable.innerHTML += report;
-                }
-            });
-
-            // Display image and extracted colors
+            // Function to display results and report
             function displayResult(file, colors) {
                 const container = document.createElement("div");
                 container.style.border = "1px solid #ddd";
@@ -167,7 +143,7 @@
                 return colorInsights;
             }
 
-            // Apply extracted colors to iframe content
+            // Function to apply styles based on extracted colors
             applyButton.addEventListener("click", () => {
                 const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                 const body = iframeDoc.body;
@@ -180,6 +156,33 @@
                     });
                 });
             });
+
+            // Analyze button click event
+            analyzeButton.addEventListener("click", async () => {
+                const files = Array.from(fileInput.files).slice(0, 10); // Allow max 10 files
+
+                // Clear previous output
+                output.innerHTML = "";
+                reportTable.innerHTML = "";
+
+                // Create table header
+                const tableHeader = `
+                    <tr>
+                        <th>Image Preview</th>
+                        <th>Extracted Colors</th>
+                        <th>Accessibility Insights</th>
+                    </tr>
+                `;
+                reportTable.innerHTML = tableHeader;
+
+                for (const file of files) {
+                    const palette = await extractColors(file, 5);
+                    extractedColors.push(palette);
+                    displayResult(file, palette);
+                    const report = generateReport(file, palette);
+                    reportTable.innerHTML += report;
+                }
+            });
         });
     </script>
 </head>
@@ -187,6 +190,7 @@
     <h1>Screenshot Color Palette Extractor & Accessibility Insights</h1>
     <p>Upload 1-10 screenshots to extract their dominant color palettes and analyze accessibility:</p>
     <input type="file" id="fileInput" accept="image/*" multiple>
+    <button id="analyzeButton" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white;">Analyze</button>
     
     <div id="output" style="margin-top: 20px;"></div>
 
@@ -212,8 +216,7 @@
                 </style>
             </head>
             <body>
-                <h1>App Home Page</h1>
-                <section>Welcome to the app! This is the first section.</section>
+                <section>Welcome to the test iframe!</section>
                 <section>Here’s another section with some content.</section>
                 <section>Last section to test the styling.</section>
             </body>
