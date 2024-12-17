@@ -1,132 +1,225 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screenshot Color Palette Extractor & Accessibility Insights</title>
+    <script type="module">
+        import vips from 'https://unpkg.com/wasm-vips/dist/vips.mjs';
 
-  <!-- SEO Meta Tags -->
-  <meta name="description" content="A mobile simulator designed to demonstrate mobile interface design.">
-  <meta name="keywords" content="mobile, simulator, mobile design, mobile app">
-  <meta name="author" content="Your Name or Company">
-  <meta http-equiv="Content-Language" content="en">
+        // Contrast ratio calculator function (WCAG 2.0)
+        function getContrastRatio(rgb1, rgb2) {
+            const lum1 = getLuminance(rgb1);
+            const lum2 = getLuminance(rgb2);
+            const brightest = Math.max(lum1, lum2);
+            const darkest = Math.min(lum1, lum2);
+            return (brightest + 0.05) / (darkest + 0.05);
+        }
 
-  <!-- Canonical Link -->
-  <link rel="canonical" href="https://www.yourwebsite.com/pc-simulator" />
+        // Calculate relative luminance for contrast ratio
+        function getLuminance(rgb) {
+            const [r, g, b] = rgb.map(c => {
+                const normalized = c / 255;
+                return normalized <= 0.03928 ? normalized / 12.92 : Math.pow((normalized + 0.055) / 1.055, 2.4);
+            });
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        }
 
-  <!-- Open Graph for Social Media -->
-  <meta property="og:title" content="PC Simulator">
-  <meta property="og:description" content="A mobile simulator designed to demonstrate mobile interface design.">
-  <meta property="og:image" content="https://www.yourwebsite.com/pc-simulator-image.jpg">
-  <meta property="og:url" content="https://www.yourwebsite.com/pc-simulator">
-  <meta property="og:type" content="website">
+        // Check if color contrast is accessible according to WCAG
+        function checkContrastAccessibility(rgb1, rgb2) {
+            const ratio = getContrastRatio(rgb1, rgb2);
+            const isAccessible = ratio >= 4.5; // Minimum contrast ratio of 4.5:1 for normal text
+            return { ratio, isAccessible };
+        }
 
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="PC Simulator">
-  <meta name="twitter:description" content="A mobile simulator designed to demonstrate mobile interface design.">
-  <meta name="twitter:image" content="https://www.yourwebsite.com/pc-simulator-image.jpg">
-  <meta name="twitter:creator" content="@yourtwitterhandle">
+        // Analyze color accessibility for different types of color blindness
+        function analyzeColorBlindnessAccessibility(hex) {
+            const rgb = hexToRgb(hex);
+            const accessible = {
+                deuteranopia: checkContrastAccessibility(rgb, [128, 128, 128]), // Adjust according to color blindness
+                protanopia: checkContrastAccessibility(rgb, [255, 255, 255]),
+            };
+            return accessible;
+        }
 
-  <!-- Favicon -->
-  <link rel="icon" href="https://www.yourwebsite.com/favicon.ico" type="image/x-icon">
+        // Convert HEX to RGB
+        function hexToRgb(hex) {
+            const bigint = parseInt(hex.slice(1), 16);
+            return [
+                (bigint >> 16) & 255,
+                (bigint >> 8) & 255,
+                bigint & 255
+            ];
+        }
 
-  <!-- Google Analytics -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-XXXXX-Y"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag() {
-      dataLayer.push(arguments);
-    }
-    gtag('js', new Date());
-    gtag('config', 'UA-XXXXX-Y');
-  </script>
+        // Function to extract dominant colors from the image
+        async function extractColors(imageFile, numColors = 5) {
+            await vips(); // Initialize wasm-vips
+            const buffer = await imageFile.arrayBuffer();
 
-  <!-- Microsoft Clarity -->
-  <script type="text/javascript">
-    (function(c,l,a,r,i,t,y) {
-      window.clarity=window.clarity||function(){(clarity.q=clarity.q||[]).push(arguments)};
-      clarity('set', 'anonymizeIP', true);
-      i=l.createElement('script');i.async=1;i.src=r;i.type='text/javascript';
-      t=l.getElementsByTagName('script')[0];t.parentNode.insertBefore(i,t);
-    })(document,window,'script','https://www.clarity.ms/tag/XXXXXX');
-  </script>
+            const img = vips.Image.thumbnailBuffer(buffer, 100);
+            const pixels = img.writeToBuffer('.raw');
+            const colorMap = new Map();
 
-  <title>PC Simulator</title>
+            for (let i = 0; i < pixels.length; i += 3) {
+                const r = pixels[i];
+                const g = pixels[i + 1];
+                const b = pixels[i + 2];
+                const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+                colorMap.set(hex, (colorMap.get(hex) || 0) + 1);
+            }
 
-  <style>
-    /* Global Styles */
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background-color: #f0f0f0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      text-align: center;
-    }
+            const sortedColors = Array.from(colorMap.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, numColors)
+                .map(([color]) => color);
 
-    .mobile-container {
-      width: 360px;
-      height: 640px;
-      border: 16px solid black;
-      border-radius: 16px;
-      background-color: #fff;
-      position: relative;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
+            return sortedColors;
+        }
 
-    .content {
-      font-size: 1.2rem;
-      color: #333;
-    }
+        document.addEventListener("DOMContentLoaded", () => {
+            const fileInput = document.getElementById("fileInput");
+            const output = document.getElementById("output");
+            const reportTable = document.getElementById("reportTable");
+            const iframe = document.getElementById("testIframe");
+            const applyButton = document.getElementById("applyStylesButton");
 
-    /* Adjustments for PC */
-    @media (min-width: 768px) {
-      .mobile-container {
-        width: 600px;
-        height: 1000px;
-      }
+            let extractedColors = [];
 
-      .content {
-        font-size: 1.5rem;
-      }
-    }
+            fileInput.addEventListener("change", async (event) => {
+                output.innerHTML = ""; // Clear previous output
+                reportTable.innerHTML = ""; // Clear previous report table
 
-    @media (min-width: 1024px) {
-      .mobile-container {
-        width: 800px;
-        height: 1400px;
-      }
+                const files = Array.from(event.target.files).slice(0, 10); // Allow max 10 files
 
-      .content {
-        font-size: 1.8rem;
-      }
-    }
+                // Create table header
+                const tableHeader = `
+                    <tr>
+                        <th>Image Preview</th>
+                        <th>Extracted Colors</th>
+                        <th>Accessibility Insights</th>
+                    </tr>
+                `;
+                reportTable.innerHTML = tableHeader;
 
-    /* Additional responsiveness for larger screens */
-    @media (min-width: 1200px) {
-      body {
-        justify-content: flex-start;
-      }
+                for (const file of files) {
+                    const palette = await extractColors(file, 5);
+                    extractedColors.push(palette);
+                    displayResult(file, palette);
+                    const report = generateReport(file, palette);
+                    reportTable.innerHTML += report;
+                }
+            });
 
-      .mobile-container {
-        margin-top: 50px;
-      }
-    }
-  </style>
+            // Display image and extracted colors
+            function displayResult(file, colors) {
+                const container = document.createElement("div");
+                container.style.border = "1px solid #ddd";
+                container.style.padding = "10px";
+                container.style.marginBottom = "20px";
+                container.style.display = "flex";
+                container.style.alignItems = "center";
+                container.style.gap = "20px";
+
+                const img = document.createElement("img");
+                img.src = URL.createObjectURL(file);
+                img.style.width = "150px";
+                img.style.height = "auto";
+                img.style.objectFit = "contain";
+
+                const paletteContainer = document.createElement("div");
+                colors.forEach(color => {
+                    const colorDiv = document.createElement("div");
+                    colorDiv.style.backgroundColor = color;
+                    colorDiv.style.width = "40px";
+                    colorDiv.style.height = "40px";
+                    colorDiv.style.display = "inline-block";
+                    colorDiv.style.marginRight = "5px";
+                    paletteContainer.appendChild(colorDiv);
+                });
+
+                container.appendChild(img);
+                container.appendChild(paletteContainer);
+                output.appendChild(container);
+            }
+
+            // Generate report for each image
+            function generateReport(file, colors) {
+                const colorInsights = colors.map(color => {
+                    const accessibility = analyzeColorBlindnessAccessibility(color);
+                    const contrastText = checkContrastAccessibility(hexToRgb(color), [255, 255, 255]);
+
+                    return `
+                        <tr>
+                            <td><img src="${URL.createObjectURL(file)}" style="width: 50px;"></td>
+                            <td style="display: flex;">
+                                ${colors.map(c => `<div style="background-color: ${c}; width: 40px; height: 40px; margin-right: 5px;"></div>`).join('')}
+                            </td>
+                            <td>
+                                <div>Contrast Ratio: ${contrastText.ratio.toFixed(2)} ${contrastText.isAccessible ? '(Accessible)' : '(Inaccessible)'}</div>
+                                <div>Deuteranopia: ${accessibility.deuteranopia.isAccessible ? 'Accessible' : 'Inaccessible'}</div>
+                                <div>Protanopia: ${accessibility.protanopia.isAccessible ? 'Accessible' : 'Inaccessible'}</div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+                
+                return colorInsights;
+            }
+
+            // Apply extracted colors to iframe content
+            applyButton.addEventListener("click", () => {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                const body = iframeDoc.body;
+
+                extractedColors.forEach((color, index) => {
+                    body.style.backgroundColor = color[0]; // Apply the first color as background
+                    const sections = iframeDoc.querySelectorAll("section");
+                    sections.forEach((section, i) => {
+                        section.style.backgroundColor = color[i % color.length];
+                    });
+                });
+            });
+        });
+    </script>
 </head>
-
 <body>
-  <div class="mobile-container">
-    <div class="content">
-      <p>Mobile Simulator Screen</p>
-      <p>PC Version: Adjusted for larger screens.</p>
-    </div>
-  </div>
-</body>
+    <h1>Screenshot Color Palette Extractor & Accessibility Insights</h1>
+    <p>Upload 1-10 screenshots to extract their dominant color palettes and analyze accessibility:</p>
+    <input type="file" id="fileInput" accept="image/*" multiple>
+    
+    <div id="output" style="margin-top: 20px;"></div>
 
+    <h2>Color Palette and Accessibility Report</h2>
+    <table id="reportTable" style="width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left;">
+        <thead>
+            <tr>
+                <th>Image Preview</th>
+                <th>Extracted Colors</th>
+                <th>Accessibility Insights</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h2>Test Iframe</h2>
+    <iframe id="testIframe" style="width: 100%; height: 300px;" srcdoc="
+        <html>
+            <head>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; }
+                    section { padding: 20px; margin-bottom: 10px; }
+                </style>
+            </head>
+            <body>
+                <h1>App Home Page</h1>
+                <section>Welcome to the app! This is the first section.</section>
+                <section>Here’s another section with some content.</section>
+                <section>Last section to test the styling.</section>
+            </body>
+        </html>
+    "></iframe>
+
+    <button id="applyStylesButton" style="margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white;">Apply Extracted Colors to Iframe</button>
+</body>
 </html>
